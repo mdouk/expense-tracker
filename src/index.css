@@ -1,34 +1,36 @@
+/* 1. Fonts MUST be first */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-    :root {
-        --background: 240 5% 98%;
-        /* Very subtle light gray */
-    }
+/* In Tailwind v4, we use @theme to override defaults */
+@theme {
+    --font-sans: "Inter", sans-serif;
+}
 
-    body {
-        font-family: 'Inter', sans-serif;
-        @apply bg-zinc-50 text-zinc-900 antialiased;
-    }
+/* Base styles */
+body {
+    font-family: "Inter", sans-serif;
+    /* We removed the @apply rule here to prevent the build error. 
+     The background and text colors are already set in App.jsx */
+}
 
-    /* Hide scrollbar for cleaner look in specific areas */
-    .no-scrollbar::-webkit-scrollbar {
+/* Hide scrollbar utility */
+@utility no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
         display: none;
-    }
-
-    .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
     }
 }
 
 /* Smooth input styling */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+@layer base {
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
 }

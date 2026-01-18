@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   getFirestore, collection, addDoc, onSnapshot, query, orderBy,
-  deleteDoc, doc, updateProfile, serverTimestamp, writeBatch
+  deleteDoc, doc, serverTimestamp, writeBatch, enableIndexedDbPersistence
 } from 'firebase/firestore';
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider,
-  signInWithPopup, signOut
+  signInWithPopup, signOut, updateProfile
 } from 'firebase/auth';
 import {
   Plus, Trash2, ArrowLeft, X, Folder, ChevronRight,
@@ -27,12 +27,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+// Enable offline persistence (optional but helps consistency)
 enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code == 'failed-precondition') {
-    // Multiple tabs open, persistence can only be enabled in one tab at a a time.
-  } else if (err.code == 'unimplemented') {
-    // The current browser does not support all of the features required to enable persistence
-  }
+  // failed-precondition: multiple tabs
+  // unimplemented: browser doesn't support IndexedDB persistence
+  console.warn("Persistence not enabled:", err.code);
 });
 const appId = "default-app-id";
 
@@ -105,13 +104,30 @@ export default function ExpenseTracker() {
     const projectsRef = collection(db, 'artifacts', appId, 'public', 'data', 'projects');
     const expensesRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
 
-    const unsubP = onSnapshot(query(projectsRef, orderBy('timestamp', 'desc')),
-      (s) => { setProjects(s.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); });
-    const unsubE = onSnapshot(query(expensesRef, orderBy('timestamp', 'desc')),
-      (s) => setExpenses(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+    // Robust sort function that handles missing/pending timestamps safely
+    const sortByTime = (a, b) => {
+      const tA = a.timestamp?.toMillis ? a.timestamp.toMillis() : Date.now();
+      const tB = b.timestamp?.toMillis ? b.timestamp.toMillis() : Date.now();
+      return tB - tA; // Newest first
+    };
+
+    const unsubP = onSnapshot(
+      query(projectsRef, orderBy("timestamp", "desc")),
+      (s) => {
+        setProjects(s.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) })));
+        setLoading(false);
+      }
+    );
+
+    const unsubE = onSnapshot(
+      query(expensesRef, orderBy("timestamp", "desc")),
+      (s) => {
+        setExpenses(s.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) })));
+      }
+    );
 
     return () => { unsubP(); unsubE(); };
-  }, [user]);
+  }, [user, db, appId]);
 
   // --- Actions ---
   const handleUpdateName = async () => {
