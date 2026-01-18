@@ -30,20 +30,17 @@ import {
   X,
   TrendingUp,
   Folder,
-  FolderPlus,
   LayoutDashboard,
-  Wallet
+  Wallet,
+  LogOut,
+  ChevronRight,
+  CreditCard
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAhnhaae7BUPcho7VWOOFtZgXI41Js293I",
   authDomain: "expense-tracker-54bda.firebaseapp.com",
@@ -60,7 +57,7 @@ const analytics = getAnalytics(app);
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const appId = "default-app-id";
 
 export default function ExpenseTracker() {
   const [user, setUser] = useState(null);
@@ -69,7 +66,11 @@ export default function ExpenseTracker() {
   // Data State
   const [projects, setProjects] = useState([]);
   const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingExpenses, setLoadingExpenses] = useState(true);
+  const [syncError, setSyncError] = useState(null);
+
+  const loading = loadingProjects || loadingExpenses;
 
   // UI State
   const [view, setView] = useState('dashboard');
@@ -105,22 +106,12 @@ export default function ExpenseTracker() {
 
   // --- Auth & Data Subscription ---
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        //
-      } catch (error) {
-        console.error("Auth Initialization Error:", error);
-      }
-    };
-    initAuth();
-
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser?.displayName) {
         setDisplayName(currentUser.displayName);
       }
     });
-
     return () => unsubscribeAuth();
   }, []);
 
@@ -132,15 +123,24 @@ export default function ExpenseTracker() {
 
     const unsubProjects = onSnapshot(projectsQuery, (snap) => {
       setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Projects Sync Error:", err));
+      setLoadingProjects(false);
+    }, (err) => {
+      console.error("Projects Sync Error:", err);
+      setSyncError("Failed to sync projects. Please check your connection or permissions.");
+      setLoadingProjects(false);
+    });
 
     const expensesRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
     const expensesQuery = query(expensesRef, orderBy('timestamp', 'desc'));
 
     const unsubExpenses = onSnapshot(expensesQuery, (snap) => {
       setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }, (err) => console.error("Expenses Sync Error:", err));
+      setLoadingExpenses(false);
+    }, (err) => {
+      console.error("Expenses Sync Error:", err);
+      setSyncError("Failed to sync expenses. Please check your connection or permissions.");
+      setLoadingExpenses(false);
+    });
 
     return () => {
       unsubProjects();
@@ -238,7 +238,6 @@ export default function ExpenseTracker() {
 
   // --- Formatting Helpers ---
   const formatEuro = (val) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(val);
-  const formatDate = (ts) => ts ? new Date(ts.seconds * 1000).toLocaleDateString('de-DE') : 'Syncing...';
 
   // --- Memoized Calcs ---
   const projectExpenses = useMemo(() =>
@@ -268,265 +267,370 @@ export default function ExpenseTracker() {
     return stats;
   }, [projectExpenses]);
 
+  // --- Login View ---
   if (!user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="bg-white p-8 rounded-2xl shadow-lg text-center space-y-4">
-          <h2 className="text-xl font-bold text-slate-800">Sign in</h2>
+      <div className="flex min-h-screen items-center justify-center bg-white p-4 font-sans text-zinc-900">
+        <div className="w-full max-w-sm text-center">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 mb-6">
+            <CreditCard className="h-6 w-6 text-zinc-900" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight mb-2">Finance</h1>
+          <p className="text-zinc-500 mb-8">Sign in to manage your portfolio.</p>
+
           <button
             onClick={signInWithGoogle}
-            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700"
+            className="w-full rounded-full bg-zinc-900 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 transition-all"
           >
-            Sign in with Google
+            Continue with Google
           </button>
         </div>
       </div>
     );
   }
 
+  // --- Loading View ---
   if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-slate-50">
-      <div className="text-center animate-pulse">
-        <TrendingUp className="w-12 h-12 text-indigo-500 mx-auto mb-2" />
-        <p className="text-slate-500 font-medium">Loading Workspace...</p>
+    <div className="flex h-screen items-center justify-center bg-white font-sans">
+      <div className="text-center">
+        <div className="mb-4 inline-flex">
+          <div className={`h-8 w-8 rounded-full border-2 border-zinc-200 border-t-zinc-900 ${!syncError ? 'animate-spin' : ''}`} />
+        </div>
+        <p className="text-sm font-medium text-zinc-500 uppercase tracking-wider">
+          {syncError ? "Sync Error" : "Loading"}
+        </p>
+
+        {syncError && (
+          <div className="mt-6 max-w-xs rounded-lg border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+            <p className="mb-3 font-medium">{syncError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full rounded-md bg-white px-3 py-2 text-xs font-bold shadow-sm ring-1 ring-inset ring-red-200 hover:bg-red-50"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 
+  // --- Main App ---
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-3 shadow-sm">
-        <div className="max-w-2xl mx-auto flex justify-between items-center">
+    <div className="min-h-screen bg-white pb-32 font-sans text-zinc-900 antialiased selection:bg-zinc-100 selection:text-zinc-900">
+
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b border-zinc-100 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
           {view === 'project' ? (
-            <button onClick={() => setView('dashboard')} className="flex items-center text-slate-600 hover:text-indigo-600 font-medium transition-colors">
-              <ArrowLeft className="w-5 h-5 mr-2" /> Back
+            <button
+              onClick={() => setView('dashboard')}
+              className="group flex items-center text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+              Back
             </button>
           ) : (
             <div className="flex items-center gap-2">
-              <LayoutDashboard className="w-5 h-5 text-indigo-600" />
-              <span className="font-bold text-slate-800">Dashboard</span>
+              <div className="h-6 w-6 rounded bg-zinc-900" />
+              <span className="text-sm font-bold tracking-tight">Dashboard</span>
             </div>
           )}
 
-          <div className="flex items-center bg-slate-100 rounded-full px-3 py-1.5 border border-slate-200">
-            <User className="w-3.5 h-3.5 text-slate-400 mr-2" />
-            <input
-              className="bg-transparent text-xs text-slate-700 w-24 outline-none focus:w-32 transition-all"
-              placeholder="Your Name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              onBlur={handleUpdateName}
-            />
+          <div className="flex items-center gap-4">
+            <div className="group relative flex items-center gap-2 rounded-full border border-zinc-200 bg-transparent px-3 py-1.5 transition-colors hover:border-zinc-300 focus-within:border-zinc-400 focus-within:ring-1 focus-within:ring-zinc-400">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <input
+                className="w-20 bg-transparent text-xs font-medium outline-none placeholder:text-zinc-400"
+                placeholder="Name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                onBlur={handleUpdateName}
+              />
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-4 space-y-6">
+      <main className="mx-auto max-w-2xl px-6 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {view === 'dashboard' ? (
           <>
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">Total Portfolio Spend</p>
-                <h2 className="text-2xl font-black text-slate-800">{formatEuro(grandTotal)}</h2>
-              </div>
-              <div className="bg-indigo-50 p-3 rounded-xl">
-                <Wallet className="w-6 h-6 text-indigo-600" />
+            {/* Minimal Metric */}
+            <div className="mb-12">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total Balance</p>
+              <div className="flex items-baseline gap-1">
+                <h2 className="text-5xl font-bold tracking-tighter text-zinc-900">{formatEuro(grandTotal)}</h2>
               </div>
             </div>
 
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                <Folder className="w-4 h-4 text-slate-400" />
-                Active Sheets
-              </h3>
+            {/* Projects List Header */}
+            <div className="mb-4 flex items-end justify-between border-b border-zinc-100 pb-2">
+              <h3 className="text-sm font-semibold text-zinc-900">Projects <span className="ml-2 text-xs text-zinc-400 font-normal">{projects.length} sheets</span></h3>
               <button
                 onClick={() => setIsProjectModalOpen(true)}
-                className="bg-indigo-600 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-md shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all"
+                className="flex items-center gap-1.5 rounded-md bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 transition-colors"
               >
-                <Plus className="w-4 h-4" /> New Sheet
+                <Plus className="h-3.5 w-3.5" /> New
               </button>
             </div>
 
-            <div className="grid gap-3">
+            {/* Linear-Style List */}
+            <div className="flex flex-col gap-1">
               {projects.map(p => (
                 <div
                   key={p.id}
                   onClick={() => { setCurrentProject(p); setView('project'); }}
-                  className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center cursor-pointer group hover:border-indigo-300 hover:shadow-md transition-all"
+                  className="group relative flex cursor-pointer items-center justify-between rounded-lg border border-transparent px-3 py-3 transition-all hover:bg-zinc-50 hover:border-zinc-100"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-slate-50 p-2.5 rounded-lg group-hover:bg-indigo-50 transition-colors">
-                      <Receipt className="w-5 h-5 text-slate-400 group-hover:text-indigo-600" />
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-8 w-8 items-center justify-center rounded border border-zinc-100 bg-white text-zinc-400 shadow-sm">
+                      <Folder className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{p.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-medium">By {p.creatorName}</p>
+                      <h4 className="text-sm font-medium text-zinc-900">{p.name}</h4>
+                      <p className="text-[10px] text-zinc-400">{p.creatorName}</p>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="font-bold text-slate-700">{formatEuro(projectTotalsMap[p.id] || 0)}</span>
+
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-zinc-900 tabular-nums">{formatEuro(projectTotalsMap[p.id] || 0)}</span>
                     <button
                       onClick={(e) => handleDeleteProject(p.id, e)}
-                      className="p-1.5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                      className="invisible flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-200 hover:text-red-600 group-hover:visible transition-all"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
+                    <ChevronRight className="h-4 w-4 text-zinc-300" />
                   </div>
                 </div>
               ))}
+
+              {projects.length === 0 && (
+                <div className="flex h-32 flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50">
+                  <p className="text-xs font-medium text-zinc-400">No active sheets</p>
+                </div>
+              )}
             </div>
           </>
         ) : (
-          <div className="space-y-4">
-            <div className="bg-indigo-900 rounded-2xl p-6 text-white shadow-lg flex justify-between items-center">
-              <div>
-                <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Sheet Context</span>
-                <h2 className="text-xl font-black">{currentProject?.name}</h2>
+          <div className="space-y-8">
+            {/* Project Header */}
+            <div>
+              <div className="mb-6 flex items-baseline justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight text-zinc-900">{currentProject?.name}</h1>
+                  <p className="text-xs text-zinc-400 mt-1">Managed by {currentProject?.creatorName}</p>
+                </div>
+                <div className="text-right">
+                  <span className="block text-2xl font-bold tracking-tight tabular-nums">{formatEuro(projectTotalsMap[currentProject?.id] || 0)}</span>
+                </div>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Sub-total</span>
-                <p className="text-xl font-black">{formatEuro(projectTotalsMap[currentProject?.id] || 0)}</p>
-              </div>
-            </div>
 
-            <div className="flex bg-slate-200/50 rounded-xl p-1">
-              <button
-                onClick={() => setActiveTab('list')}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
-              >
-                Entries
-              </button>
-              <button
-                onClick={() => setActiveTab('stats')}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'stats' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
-              >
-                User Split
-              </button>
+              {/* Segmented Controls */}
+              <div className="inline-flex rounded-lg bg-zinc-100 p-1">
+                <button
+                  onClick={() => setActiveTab('list')}
+                  className={`rounded-md px-4 py-1.5 text-xs font-medium transition-all ${activeTab === 'list' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  Expenses
+                </button>
+                <button
+                  onClick={() => setActiveTab('stats')}
+                  className={`rounded-md px-4 py-1.5 text-xs font-medium transition-all ${activeTab === 'stats' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  Distribution
+                </button>
+              </div>
             </div>
 
             {activeTab === 'list' ? (
-              <div className="space-y-3 pb-24">
-                {projectExpenses.map(ex => (
-                  <div key={ex.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start">
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-slate-800">{ex.item}</h4>
-                      <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
-                        <span className="bg-slate-100 px-1.5 py-0.5 rounded uppercase font-bold text-[9px]">{ex.quantity} Units</span>
-                        <span className="flex items-center gap-1">@ {formatEuro(ex.unitPrice)}</span>
-                        <span className="text-slate-300">|</span>
-                        <span className="flex items-center gap-1 font-medium">{ex.userName}</span>
+              <div className="min-h-[200px]">
+                {/* Table Header */}
+                <div className="mb-2 grid grid-cols-12 px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                  <div className="col-span-6">Item</div>
+                  <div className="col-span-3 text-right">Cost</div>
+                  <div className="col-span-3 text-right">Actions</div>
+                </div>
+
+                {/* Table Body */}
+                <div className="divide-y divide-zinc-50">
+                  {projectExpenses.map(ex => (
+                    <div key={ex.id} className="group grid grid-cols-12 items-center py-3 px-3 transition-colors hover:bg-zinc-50 rounded-md">
+                      <div className="col-span-6 pr-4">
+                        <p className="text-sm font-medium text-zinc-900 truncate">{ex.item}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-400 mt-0.5">
+                          <span className="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-600 font-medium">{ex.quantity}x</span>
+                          <span>{formatEuro(ex.unitPrice)}</span>
+                          <span>•</span>
+                          <span>{ex.userName}</span>
+                        </div>
+
                       </div>
-                      {ex.comments && <p className="text-xs italic text-slate-400 bg-slate-50 p-2 rounded-lg mt-2 border-l-2 border-slate-200">"{ex.comments}"</p>}
+                      <div className="col-span-3 text-right">
+                        <span className="text-sm font-medium tabular-nums text-zinc-900">{formatEuro(ex.totalPrice)}</span>
+                      </div>
+                      <div className="col-span-3 flex justify-end">
+                        <button
+                          onClick={() => handleDeleteExpense(ex.id)}
+                          className="invisible rounded p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600 group-hover:visible transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {ex.comments && (
+                        <div className="col-span-12 mt-2 pl-2 border-l-2 border-zinc-100 text-xs text-zinc-500 italic">
+                          {ex.comments}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="font-bold text-slate-800">{formatEuro(ex.totalPrice)}</span>
-                      <button onClick={() => handleDeleteExpense(ex.id)} className="text-slate-200 hover:text-red-500 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  ))}
+                </div>
+
+                {projectExpenses.length === 0 && (
+                  <div className="py-12 text-center text-sm text-zinc-400 italic">
+                    No entries yet. Add one to get started.
                   </div>
-                ))}
+                )}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-                <h4 className="font-bold text-slate-800 border-b pb-3 text-sm uppercase tracking-wider">Spend Distribution</h4>
-                {Object.entries(statsByUser).map(([name, total]) => (
-                  <div key={name} className="flex justify-between items-center py-1">
-                    <span className="text-slate-600 text-sm font-medium">{name}</span>
-                    <span className="font-bold text-slate-800">{formatEuro(total)}</span>
-                  </div>
-                ))}
-                {Object.keys(statsByUser).length === 0 && (
-                  <p className="text-center text-slate-400 text-sm py-4">No data to display yet.</p>
-                )}
+              <div className="rounded-xl border border-zinc-100 bg-white p-6 shadow-sm">
+                <h3 className="mb-6 text-xs font-semibold uppercase tracking-wider text-zinc-900">Cost Breakdown</h3>
+                <div className="space-y-4">
+                  {Object.entries(statsByUser).map(([name, total]) => (
+                    <div key={name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                        <span className="text-sm font-medium text-zinc-600">{name}</span>
+                      </div>
+                      <span className="text-sm font-bold tabular-nums text-zinc-900">{formatEuro(total)}</span>
+                    </div>
+                  ))}
+                  {Object.keys(statsByUser).length === 0 && (
+                    <p className="text-center text-sm text-zinc-400">No data available.</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
         )}
       </main>
 
+      {/* Floating Action Button */}
       {view === 'project' && (
-        <button
-          onClick={() => setIsFormOpen(true)}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold py-3.5 px-8 rounded-full shadow-xl shadow-indigo-200 flex items-center gap-2 active:scale-95 transition-all hover:bg-indigo-700 z-40"
-        >
-          <Plus className="w-5 h-5" /> Add Expense
-        </button>
-      )}
-
-      {isProjectModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onClick={() => setIsProjectModalOpen(false)} />
-          <form onSubmit={handleCreateProject} className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative z-10 animate-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-black text-slate-800 mb-4">Initialize Sheet</h3>
-            <input
-              autoFocus
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 px-4 mb-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-sm"
-              placeholder="e.g. Living Room Renovation"
-              value={newProjectName}
-              onChange={e => setNewProjectName(e.target.value)}
-            />
-            <button className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-indigo-700 transition-colors">Create</button>
-          </form>
+        <div className="fixed bottom-8 left-0 right-0 z-40 flex justify-center pointer-events-none">
+          <button
+            onClick={() => setIsFormOpen(true)}
+            className="pointer-events-auto flex items-center gap-2 rounded-full bg-zinc-900 px-6 py-3 font-semibold text-white shadow-xl shadow-zinc-200 ring-1 ring-zinc-900 transition-transform active:scale-95 hover:bg-zinc-800"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Add Entry</span>
+          </button>
         </div>
       )}
 
+      {/* Project Modal */}
+      {isProjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" onClick={() => setIsProjectModalOpen(false)} />
+          <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-100 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="mb-1 text-lg font-bold text-zinc-900">New Sheet</h3>
+            <p className="mb-6 text-sm text-zinc-500">Create a new collection for expenses.</p>
+
+            <form onSubmit={handleCreateProject}>
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-zinc-900 mb-1.5">Name</label>
+                <input
+                  autoFocus
+                  className="w-full rounded-md border border-zinc-200 bg-transparent px-3 py-2 text-sm font-medium placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-0 transition-colors"
+                  placeholder="e.g. Q4 Marketing"
+                  value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                />
+              </div>
+              <button className="w-full rounded-md bg-zinc-900 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 transition-colors shadow-sm">
+                Create Sheet
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Expense Form Modal */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onClick={() => setIsFormOpen(false)} />
-          <form onSubmit={handleAddExpense} className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative z-10 space-y-4 animate-in slide-in-from-bottom duration-300">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-black text-slate-800">New Entry</h3>
-              <button type="button" onClick={() => setIsFormOpen(false)} className="p-2 bg-slate-100 rounded-full transition-colors hover:bg-slate-200"><X className="w-4 h-4 text-slate-500" /></button>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-0">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" onClick={() => setIsFormOpen(false)} />
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-300">
+            <div className="flex items-center justify-between border-b border-zinc-50 px-6 py-4">
+              <h3 className="font-bold text-zinc-900">Add Entry</h3>
+              <button onClick={() => setIsFormOpen(false)} className="text-zinc-400 hover:text-zinc-900">
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="space-y-4">
-              <input
-                required autoFocus
-                placeholder="What was purchased?"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 px-4 font-medium text-sm"
-                value={formData.item}
-                onChange={e => setFormData({ ...formData, item: e.target.value })}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="number" required step="0.01"
-                  placeholder="Qty"
-                  className="bg-slate-50 border border-slate-200 rounded-xl py-3.5 px-4 font-medium text-sm"
-                  value={formData.quantity}
-                  onChange={e => setFormData({ ...formData, quantity: e.target.value })}
-                />
-                <div className="flex bg-slate-100 rounded-xl p-1">
-                  <button type="button" onClick={() => setFormData({ ...formData, priceMode: 'total' })} className={`flex-1 text-[9px] font-black uppercase rounded-lg ${formData.priceMode === 'total' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Total €</button>
-                  <button type="button" onClick={() => setFormData({ ...formData, priceMode: 'unit' })} className={`flex-1 text-[9px] font-black uppercase rounded-lg ${formData.priceMode === 'unit' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Unit €</button>
+            <form onSubmit={handleAddExpense} className="p-6">
+              <div className="mb-6">
+                <div className="relative">
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-xl font-medium text-zinc-300">€</span>
+                  <input
+                    type="number" required step="0.01"
+                    placeholder="0,00"
+                    className="w-full bg-transparent p-0 pl-6 text-4xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-200 border-none focus:ring-0 outline-none"
+                    value={formData.priceInput}
+                    onChange={e => setFormData({ ...formData, priceInput: e.target.value })}
+                  />
                 </div>
               </div>
 
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">€</div>
-                <input
-                  type="number" required step="0.01"
-                  placeholder="0,00"
-                  className="w-full bg-indigo-50 border border-indigo-100 rounded-xl py-4 pl-10 pr-4 font-black text-xl text-indigo-900"
-                  value={formData.priceInput}
-                  onChange={e => setFormData({ ...formData, priceInput: e.target.value })}
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Item Name</label>
+                  <input
+                    required autoFocus
+                    placeholder="e.g. Uber Ride"
+                    className="w-full border-b border-zinc-100 bg-transparent py-2 text-sm font-medium placeholder:text-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
+                    value={formData.item}
+                    onChange={e => setFormData({ ...formData, item: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Quantity</label>
+                    <input
+                      type="number" required step="0.01"
+                      className="w-full border-b border-zinc-100 bg-transparent py-2 text-sm font-medium focus:border-zinc-900 focus:outline-none transition-colors"
+                      value={formData.quantity}
+                      onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Pricing Logic</label>
+                    <div className="flex bg-zinc-50 rounded-md p-1">
+                      <button type="button" onClick={() => setFormData({ ...formData, priceMode: 'total' })} className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wide rounded ${formData.priceMode === 'total' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400'}`}>Total</button>
+                      <button type="button" onClick={() => setFormData({ ...formData, priceMode: 'unit' })} className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wide rounded ${formData.priceMode === 'unit' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400'}`}>Unit</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Comments</label>
+                  <textarea
+                    placeholder="Optional notes..."
+                    rows="2"
+                    className="w-full rounded-md bg-zinc-50 border-none py-2 px-3 text-sm text-zinc-600 placeholder:text-zinc-300 focus:ring-1 focus:ring-zinc-200 resize-none transition-all"
+                    value={formData.comments}
+                    onChange={e => setFormData({ ...formData, comments: e.target.value })}
+                  />
+                </div>
               </div>
 
-              <textarea
-                placeholder="Notes (Brand, Store, etc.)"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm"
-                rows="2"
-                value={formData.comments}
-                onChange={e => setFormData({ ...formData, comments: e.target.value })}
-              />
-            </div>
-
-            <button className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-indigo-700 transition-all flex justify-center items-center gap-2">
-              <Check className="w-5 h-5" /> Confirm Entry
-            </button>
-          </form>
+              <div className="mt-8">
+                <button className="w-full rounded-md bg-zinc-900 py-3 text-sm font-bold text-white hover:bg-zinc-800 transition-colors shadow-lg shadow-zinc-200">
+                  Convert to Expense
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
