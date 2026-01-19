@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 
-// --- Firebase Config (Keep your original config) ---
+// --- Firebase Config ---
 const firebaseConfig = {
   apiKey: "AIzaSyAhnhaae7BUPcho7VWOOFtZgXI41Js293I",
   authDomain: "expense-tracker-54bda.firebaseapp.com",
@@ -28,11 +28,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 // Enable offline persistence (optional but helps consistency)
-enableIndexedDbPersistence(db).catch((err) => {
-  // failed-precondition: multiple tabs
-  // unimplemented: browser doesn't support IndexedDB persistence
-  console.warn("Persistence not enabled:", err.code);
-});
+//enableIndexedDbPersistence(db).catch((err) => {
+// failed-precondition: multiple tabs
+// unimplemented: browser doesn't support IndexedDB persistence
+//console.warn("Persistence not enabled:", err.code);
+//});
 const appId = "default-app-id";
 
 // --- Components ---
@@ -77,7 +77,7 @@ export default function ExpenseTracker() {
 
   // UI
   const [view, setView] = useState('dashboard');
-  const [currentProject, setCurrentProject] = useState(null);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
@@ -151,7 +151,10 @@ export default function ExpenseTracker() {
       expenses.filter(ex => ex.projectId === pid).forEach(ex =>
         batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', ex.id)));
       await batch.commit();
-      if (currentProject?.id === pid) { setView('dashboard'); setCurrentProject(null); }
+      if (currentProjectId === pid) {
+        setView('dashboard');
+        setCurrentProjectId(null);
+      }
     }
   };
 
@@ -164,7 +167,7 @@ export default function ExpenseTracker() {
     const unit = formData.priceMode === 'total' ? (qty > 0 ? price / qty : 0) : price;
 
     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), {
-      projectId: currentProject.id, item: formData.item, quantity: qty, unitPrice: unit, totalPrice: total,
+      projectId: currentProjectId, item: formData.item, quantity: qty, unitPrice: unit, totalPrice: total,
       userId: user.uid, userName: displayName, comments: formData.comments, timestamp: serverTimestamp()
     });
     setFormData({ item: '', quantity: '1', priceMode: 'total', priceInput: '', comments: '' });
@@ -180,7 +183,15 @@ export default function ExpenseTracker() {
   const projectTotal = (pid) => expenses.filter(e => e.projectId === pid).reduce((sum, e) => sum + (e.totalPrice || 0), 0);
   const grandTotal = expenses.reduce((sum, e) => sum + (e.totalPrice || 0), 0);
 
-  const currentExpenses = useMemo(() => expenses.filter(e => e.projectId === currentProject?.id), [expenses, currentProject]);
+  const currentProject = useMemo(
+    () => projects.find(p => p.id === currentProjectId),
+    [projects, currentProjectId]
+  );
+
+  const currentExpenses = useMemo(
+    () => expenses.filter(e => e.projectId === currentProjectId),
+    [expenses, currentProjectId]
+  );
 
   // --- Render ---
   if (!user) return (
@@ -188,7 +199,7 @@ export default function ExpenseTracker() {
       <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-xl shadow-zinc-200 ring-1 ring-zinc-100">
         <CreditCard className="h-8 w-8 text-zinc-900" />
       </div>
-      <h1 className="mb-2 text-3xl font-bold tracking-tighter text-zinc-900">Finance</h1>
+      <h1 className="mb-2 text-3xl font-bold tracking-tighter text-zinc-900">Expense Tracker</h1>
       <p className="mb-8 max-w-xs text-sm text-zinc-500 font-medium leading-relaxed">Simple, elegant expense tracking for your personal portfolio.</p>
       <button onClick={signInWithGoogle} className="group relative flex w-full max-w-xs items-center justify-center gap-3 rounded-2xl bg-zinc-900 px-6 py-4 font-semibold text-white transition-all hover:bg-zinc-800 hover:scale-[1.02] active:scale-95 shadow-lg shadow-zinc-200">
         <span>Continue with Google</span>
@@ -237,20 +248,20 @@ export default function ExpenseTracker() {
         {view === 'dashboard' ? (
           <>
             <div className="mb-12">
-              <h2 className="text-sm font-medium text-zinc-500 mb-1">Total Balance</h2>
+              <h2 className="text-sm font-medium text-zinc-500 mb-1">Total Expenses</h2>
               <div className="text-5xl font-bold tracking-tighter text-zinc-900">{formatMoney(grandTotal)}</div>
             </div>
 
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-lg font-bold tracking-tight">Your Sheets</h3>
+              <h3 className="text-lg font-bold tracking-tight">Your Projects</h3>
               <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white shadow-lg hover:bg-zinc-800 transition-transform active:scale-95">
-                <Plus className="h-4 w-4" /> New Sheet
+                <Plus className="h-4 w-4" /> New Project
               </button>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {projects.map(p => (
-                <Card key={p.id} onClick={() => { setCurrentProject(p); setView('project'); }} className="group relative p-5">
+                <Card key={p.id} onClick={() => { setCurrentProjectId(p.id); setView('project'); }} className="group relative p-5">
                   <div className="flex items-start justify-between mb-8">
                     <div className="h-10 w-10 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center text-zinc-400 group-hover:scale-110 group-hover:bg-zinc-100 group-hover:text-zinc-900 transition-all duration-300">
                       <Folder className="h-5 w-5" />
@@ -267,7 +278,7 @@ export default function ExpenseTracker() {
               ))}
               {projects.length === 0 && !loading && (
                 <div className="col-span-full py-16 text-center rounded-3xl border-2 border-dashed border-zinc-200 bg-zinc-50/50">
-                  <p className="text-zinc-400 font-medium">No sheets yet. Create one to start.</p>
+                  <p className="text-zinc-400 font-medium">No projects yet. Create one to start.</p>
                 </div>
               )}
             </div>
@@ -356,11 +367,11 @@ export default function ExpenseTracker() {
       )}
 
       {/* Modals */}
-      <Modal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} title="New Sheet">
+      <Modal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} title="New Project">
         <form onSubmit={createProject}>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">Sheet Name</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">Project Name</label>
           <input autoFocus className="mb-6 w-full border-b-2 border-zinc-100 bg-transparent py-2 text-lg font-semibold outline-none focus:border-zinc-900 transition-colors placeholder:text-zinc-300" placeholder="e.g. Q4 Marketing" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} />
-          <button className="w-full rounded-xl bg-zinc-900 py-3.5 font-bold text-white shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">Create Sheet</button>
+          <button className="w-full rounded-xl bg-zinc-900 py-3.5 font-bold text-white shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">Create Project</button>
         </form>
       </Modal>
 
