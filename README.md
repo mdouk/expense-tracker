@@ -1,18 +1,97 @@
-# React + Vite
+# Expense Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, elegant expense tracking application built with **React** and **Firebase**. This application allows users to manage projects and track expenses in real-time with a beautiful, responsive user interface.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 🔐 Authentication
+- **Google Sign-In**: Secure and easy authentication using Firebase Auth.
+- **Profile Management**: customizable display names.
+- **Session Persistence**: Stays logged in across sessions.
 
-## React Compiler
+### 📊 Dashboard
+- **Total Overview**: View the grand total of all expenses across all projects.
+- **Project Management**: 
+  - Create new projects with custom names.
+  - View project summaries including individual totals.
+  - Delete projects (cascading delete removes all associated expenses).
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+### 💰 Expense Management
+- **Detailed Tracking**: Add expenses with:
+  - Description.
+  - Price (Total or Unit based).
+  - Quantity.
+  - Comments.
+- **Flexible Pricing**: Toggle between 'Total Price' or 'Unit Price' input modes.
+- **Real-time Updates**: Changes are reflected instantly across all connected clients via Firestore snapshots.
+- **Transactions List**: View itemized expenses with user attribution.
+- **Analysis View**: Visual representation of spending distribution (simplified stats).
 
-Note: This will impact Vite dev & build performances.
+### 🎨 User Interface
+- **Modern Design**: Clean aesthetics using Tailwind CSS (Zinc color palette).
+- **Interactive**: Smooth transitions, hover effects, and animated modals.
+- **Responsive**: Fully optimized for mobile and desktop views.
 
-## Expanding the ESLint configuration
+## 🛠 Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Frontend**: React 19, Vite
+- **Styling**: Tailwind CSS, PostCSS
+- **Backend (BaaS)**: Firebase (Firestore, Authentication)
+- **Icons**: Lucide React
+- **Linting**: ESLint
+
+## 🏗 Architecture
+
+The application is built as a Single Page Application (SPA).
+
+### Data Model (Firestore)
+Data is structured under a specific `appId` path for multi-tenancy support (if needed in future variants).
+- **Projects Collection**: Stores project metadata (name, creator, timestamp).
+- **Expenses Collection**: Stores individual transaction records linked to a `projectId`.
+
+### Component Structure
+- **App (Root)**: Handles Routing (Dashboard vs Project View), Auth State, and Data Subscription.
+  - **Navbar**: Global navigation, user profile, and sign-out.
+  - **Dashboard View**: Displays the list of projects and grand totals.
+  - **Project View**: Detailed view of a selected project with tabs for transactions and analysis.
+  - **Modals**:
+    - `isProjectModalOpen`: For creating new projects.
+    - `isFormOpen`: For adding new expenses.
+  - **Reusable Components**:
+    - `Card`: A styled container for projects.
+    - `Modal`: A generic wrapper for popup interactions.
+
+## 💻 Installation & Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd expense-tracker
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+   The project requires a Firebase configuration. Ensure your Firebase keys are correctly set up in `src/App.jsx` or moved to environment variables for better security.
+
+4. **Run Locally**
+   Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+5. **Build for Production**
+   Create a production-ready build:
+   ```bash
+   npm run deploy
+   ```
+
+## 📜 Scripts
+
+- `npm run dev`: Starts the Vite development server locally.
+- `npm run deploy`: Builds the app for production. See in package.json for the script hat combines npm run build && firebase deploy
+- `npm run lint`: Runs ESLint to check for code quality issues.
+- `npm run preview`: Previews the production build locally.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   getFirestore, collection, addDoc, onSnapshot, query, orderBy,
-  deleteDoc, doc, serverTimestamp, writeBatch, enableIndexedDbPersistence
+  deleteDoc, doc, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider,
@@ -27,12 +27,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-// Enable offline persistence (optional but helps consistency)
-//enableIndexedDbPersistence(db).catch((err) => {
-// failed-precondition: multiple tabs
-// unimplemented: browser doesn't support IndexedDB persistence
-//console.warn("Persistence not enabled:", err.code);
-//});
 const appId = "default-app-id";
 
 // --- Components ---
