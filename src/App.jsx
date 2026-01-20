@@ -1,64 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  getFirestore, collection, addDoc, onSnapshot, query, orderBy,
+  collection, addDoc, onSnapshot, query, orderBy,
   deleteDoc, doc, serverTimestamp, writeBatch, updateDoc
 } from 'firebase/firestore';
+import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import {
-  getAuth, onAuthStateChanged, GoogleAuthProvider,
-  signInWithPopup, signOut, updateProfile
-} from 'firebase/auth';
-import {
-  Plus, Trash2, ArrowLeft, X, Folder, ChevronRight,
-  CreditCard, LogOut, MoreVertical, LayoutGrid, List as ListIcon, Pencil
+  Plus, Trash2, ArrowLeft, Folder, ChevronRight,
+  CreditCard, LogOut, LayoutGrid, Pencil
 } from 'lucide-react';
-import { initializeApp } from "firebase/app";
 
-// --- Firebase Config ---
-const firebaseConfig = {
-  apiKey: "AIzaSyAhnhaae7BUPcho7VWOOFtZgXI41Js293I",
-  authDomain: "expense-tracker-54bda.firebaseapp.com",
-  projectId: "expense-tracker-54bda",
-  storageBucket: "expense-tracker-54bda.firebasestorage.app",
-  messagingSenderId: "911750100410",
-  appId: "1:911750100410:web:14ecae5a3120293c621983",
-  measurementId: "G-K5JNZH1G3L"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = "default-app-id";
-
-// --- Components ---
-
-// 1. Modern Card Component
-const Card = ({ children, className = "", onClick }) => (
-  <div
-    onClick={onClick}
-    className={`bg-white rounded-2xl border border-zinc-100 shadow-sm hover:shadow-md hover:border-zinc-200 transition-all duration-200 cursor-pointer ${className}`}
-  >
-    {children}
-  </div>
-);
-
-// 2. Modal Component
-const Modal = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-zinc-900/20 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between border-b border-zinc-50 px-6 py-5">
-          <h3 className="font-semibold text-zinc-900 tracking-tight">{title}</h3>
-          <button onClick={onClose} className="rounded-full p-1 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 transition-colors">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
+import { auth, db, signInWithGoogle, logOut } from './config/firebase';
+import Card from './components/ui/Card';
+import Modal from './components/ui/Modal';
 
 export default function ExpenseTracker() {
   const [user, setUser] = useState(null);
@@ -82,12 +35,9 @@ export default function ExpenseTracker() {
   const [editingProject, setEditingProject] = useState(null);
   const [editingExpense, setEditingExpense] = useState(null);
 
-  // --- Auth & Sync ---
-  const signInWithGoogle = async () => {
-    try { await signInWithPopup(auth, new GoogleAuthProvider()); }
-    catch (e) { console.error(e); }
-  };
+  const appId = "default-app-id";
 
+  // --- Auth & Sync ---
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -99,13 +49,6 @@ export default function ExpenseTracker() {
     if (!user) return;
     const projectsRef = collection(db, 'artifacts', appId, 'public', 'data', 'projects');
     const expensesRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
-
-    // Robust sort function that handles missing/pending timestamps safely
-    const sortByTime = (a, b) => {
-      const tA = a.timestamp?.toMillis ? a.timestamp.toMillis() : Date.now();
-      const tB = b.timestamp?.toMillis ? b.timestamp.toMillis() : Date.now();
-      return tB - tA; // Newest first
-    };
 
     const unsubP = onSnapshot(
       query(projectsRef, orderBy("timestamp", "desc")),
@@ -123,7 +66,7 @@ export default function ExpenseTracker() {
     );
 
     return () => { unsubP(); unsubE(); };
-  }, [user, db, appId]);
+  }, [user]);
 
   // --- Actions ---
   const handleUpdateName = async () => {
@@ -274,7 +217,7 @@ export default function ExpenseTracker() {
                 value={displayName} onChange={(e) => setDisplayName(e.target.value)} onBlur={handleUpdateName}
               />
             </div>
-            <button onClick={() => signOut(auth)} className="text-zinc-400 hover:text-zinc-900 transition-colors">
+            <button onClick={logOut} className="text-zinc-400 hover:text-zinc-900 transition-colors">
               <LogOut className="h-5 w-5" />
             </button>
           </div>
@@ -385,7 +328,6 @@ export default function ExpenseTracker() {
             ) : (
               <div className="rounded-3xl bg-zinc-900 p-8 text-white shadow-xl">
                 <h3 className="mb-6 font-bold">Spending Distribution</h3>
-                {/* Logic for stats would go here, simplified for display */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center opacity-80">
                     <span>{displayName}</span>
