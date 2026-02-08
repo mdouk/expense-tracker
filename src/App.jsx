@@ -6,12 +6,14 @@ import {
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import {
   Plus, Trash2, ArrowLeft, Folder, ChevronRight,
-  CreditCard, LogOut, LayoutGrid, Pencil
+  CreditCard, LogOut, LayoutGrid, Star
 } from 'lucide-react';
 
 import { auth, db, signInWithGoogle, logOut } from './config/firebase';
 import Card from './components/ui/Card';
 import Modal from './components/ui/Modal';
+import ConfirmModal from './components/ui/ConfirmModal';
+import EmojiPicker from './components/ui/EmojiPicker';
 
 export default function ExpenseTracker() {
   const [user, setUser] = useState(null);
@@ -33,6 +35,15 @@ export default function ExpenseTracker() {
   const [formData, setFormData] = useState({ item: '', quantity: '1', priceMode: 'total', priceInput: '', comments: '' });
   const [newProjectName, setNewProjectName] = useState('');
   const [editingProject, setEditingProject] = useState(null);
+
+  // New project properties
+  const [projectEmoji, setProjectEmoji] = useState(null);
+  const [projectCategory, setProjectCategory] = useState('');
+  const [projectFavorite, setProjectFavorite] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [editingExpense, setEditingExpense] = useState(null);
 
   const appId = "default-app-id";
@@ -77,39 +88,71 @@ export default function ExpenseTracker() {
     e.preventDefault();
     if (!newProjectName.trim()) return;
 
+    const projectData = {
+      name: newProjectName,
+      emoji: projectEmoji || null,
+      category: projectCategory.trim() || null,
+      favorite: projectFavorite
+    };
+
     if (editingProject) {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', editingProject.id), {
-        name: newProjectName
-      });
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', editingProject.id), projectData);
     } else {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
-        name: newProjectName, createdBy: user.uid, creatorName: displayName, timestamp: serverTimestamp()
+        ...projectData,
+        createdBy: user.uid,
+        creatorName: displayName,
+        timestamp: serverTimestamp()
       });
     }
-    setNewProjectName('');
-    setEditingProject(null);
+    resetProjectForm();
     setIsProjectModalOpen(false);
   };
 
-  const openProjectModal = (project = null) => {
+  const resetProjectForm = () => {
+    setNewProjectName('');
+    setProjectEmoji(null);
+    setProjectCategory('');
+    setProjectFavorite(false);
+    setEditingProject(null);
+  };
+
+  const openProjectModal = (project = null, e = null) => {
+    if (e) e.stopPropagation();
     setEditingProject(project);
     setNewProjectName(project ? project.name : '');
+    setProjectEmoji(project?.emoji || null);
+    setProjectCategory(project?.category || '');
+    setProjectFavorite(project?.favorite || false);
     setIsProjectModalOpen(true);
   };
 
-  const deleteProject = async (pid, e) => {
+  const toggleProjectFavorite = async (project, e) => {
     e.stopPropagation();
-    if (window.confirm("Delete project and all expenses?")) {
-      const batch = writeBatch(db);
-      batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'projects', pid));
-      expenses.filter(ex => ex.projectId === pid).forEach(ex =>
-        batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', ex.id)));
-      await batch.commit();
-      if (currentProjectId === pid) {
-        setView('dashboard');
-        setCurrentProjectId(null);
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', project.id), {
+      favorite: !project.favorite
+    });
+  };
+
+  const confirmDeleteProject = (pid, projectName, e) => {
+    e.stopPropagation();
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Project',
+      message: `Delete "${projectName}" and all its expenses?`,
+      onConfirm: async () => {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'projects', pid));
+        expenses.filter(ex => ex.projectId === pid).forEach(ex =>
+          batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', ex.id)));
+        await batch.commit();
+        if (currentProjectId === pid) {
+          setView('dashboard');
+          setCurrentProjectId(null);
+        }
+        setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
       }
-    }
+    });
   };
 
   const handleSaveExpense = async (e) => {
@@ -154,8 +197,17 @@ export default function ExpenseTracker() {
     setIsFormOpen(true);
   };
 
-  const deleteExpense = async (id) => {
-    if (window.confirm("Delete expense?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
+  const confirmDeleteExpense = (id, itemName, e) => {
+    e.stopPropagation();
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Expense',
+      message: `Delete "${itemName}"?`,
+      onConfirm: async () => {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
+        setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
+      }
+    });
   };
 
   // --- Helpers ---
@@ -241,23 +293,38 @@ export default function ExpenseTracker() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {projects.map(p => (
-                <Card key={p.id} onClick={() => { setCurrentProjectId(p.id); setView('project'); }} className="group relative p-5">
-                  <div className="flex items-start justify-between mb-8">
-                    <div className="h-10 w-10 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center text-zinc-400 group-hover:scale-110 group-hover:bg-zinc-100 group-hover:text-zinc-900 transition-all duration-300">
-                      <Folder className="h-5 w-5" />
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={(e) => { e.stopPropagation(); openProjectModal(p); }} className="p-2 text-zinc-300 hover:text-zinc-900 transition-all">
-                        <Pencil className="h-4 w-4" />
+                <Card key={p.id} onClick={() => openProjectModal(p)} className="group relative p-5">
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center text-xl group-hover:scale-110 group-hover:bg-zinc-100 transition-all duration-300">
+                        {p.emoji || <Folder className="h-5 w-5 text-zinc-400" />}
+                      </div>
+                      <button
+                        onClick={(e) => toggleProjectFavorite(p, e)}
+                        className={`p-1.5 rounded-full transition-all ${p.favorite ? 'text-yellow-500' : 'text-zinc-300 hover:text-yellow-500'}`}
+                      >
+                        <Star className={`h-4 w-4 ${p.favorite ? 'fill-current' : ''}`} />
                       </button>
-                      <button onClick={(e) => deleteProject(p.id, e)} className="p-2 text-zinc-300 hover:text-red-500 transition-all">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
                     </div>
+                    <button
+                      onClick={(e) => confirmDeleteProject(p.id, p.name, e)}
+                      className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                   <div>
+                    {p.category && <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">{p.category}</span>}
                     <h4 className="font-bold text-zinc-900 mb-1">{p.name}</h4>
                     <p className="text-2xl font-bold tracking-tight text-zinc-900">{formatMoney(projectTotal(p.id))}</p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 flex justify-end">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCurrentProjectId(p.id); setView('project'); }}
+                      className="text-xs font-semibold text-zinc-500 hover:text-zinc-900 flex items-center gap-1 transition-colors"
+                    >
+                      View Expenses <ChevronRight className="h-3 w-3" />
+                    </button>
                   </div>
                 </Card>
               ))}
@@ -296,28 +363,32 @@ export default function ExpenseTracker() {
             {activeTab === 'list' ? (
               <div className="space-y-3">
                 {currentExpenses.map(ex => (
-                  <div key={ex.id} className="group relative flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm border border-zinc-100 transition-all hover:border-zinc-300">
-                    <div className="flex items-center gap-4">
-                      <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 font-bold text-xs">
+                  <div
+                    key={ex.id}
+                    onClick={() => openExpenseModal(ex)}
+                    className="group relative flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm border border-zinc-100 transition-all hover:border-zinc-300 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 font-bold text-xs shrink-0">
                         {ex.item.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="font-semibold text-zinc-900">{ex.item}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-zinc-900 truncate">{ex.item}</p>
                         <div className="flex items-center gap-2 text-xs text-zinc-400">
                           <span className="font-medium text-zinc-500">{ex.userName}</span>
                           {ex.quantity > 1 && <span className="bg-zinc-100 px-1.5 rounded text-zinc-600">{ex.quantity}x</span>}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
                         <p className="font-bold tabular-nums text-zinc-900">{formatMoney(ex.totalPrice)}</p>
                         {ex.quantity > 1 && <p className="text-[10px] text-zinc-400">{formatMoney(ex.unitPrice)} /unit</p>}
                       </div>
-                      <button onClick={() => openExpenseModal(ex)} className="p-2 text-zinc-300 hover:bg-zinc-50 hover:text-zinc-900 rounded-full transition-all">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => deleteExpense(ex.id)} className="p-2 text-zinc-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-all">
+                      <button
+                        onClick={(e) => confirmDeleteExpense(ex.id, ex.item, e)}
+                        className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -354,10 +425,40 @@ export default function ExpenseTracker() {
       )}
 
       {/* Modals */}
-      <Modal isOpen={isProjectModalOpen} onClose={() => { setIsProjectModalOpen(false); setEditingProject(null); }} title={editingProject ? "Edit Project" : "New Project"}>
+      <Modal isOpen={isProjectModalOpen} onClose={() => { setIsProjectModalOpen(false); resetProjectForm(); }} title={editingProject ? "Edit Project" : "New Project"}>
         <form onSubmit={handleSaveProject}>
+          {/* Icon Selector */}
+          <div className="mb-6 flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setIsEmojiPickerOpen(true)}
+              className="h-14 w-14 rounded-2xl bg-zinc-50 border-2 border-dashed border-zinc-200 flex items-center justify-center text-2xl hover:bg-zinc-100 hover:border-zinc-300 transition-all"
+            >
+              {projectEmoji || <Folder className="h-6 w-6 text-zinc-400" />}
+            </button>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-zinc-700">Project Icon</p>
+              <p className="text-xs text-zinc-400">Tap to choose an icon</p>
+            </div>
+          </div>
+
           <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">Project Name</label>
-          <input autoFocus className="mb-6 w-full border-b-2 border-zinc-100 bg-transparent py-2 text-lg font-semibold outline-none focus:border-zinc-900 transition-colors placeholder:text-zinc-300" placeholder="e.g. Q4 Marketing" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} />
+          <input autoFocus className="mb-4 w-full border-b-2 border-zinc-100 bg-transparent py-2 text-lg font-semibold outline-none focus:border-zinc-900 transition-colors placeholder:text-zinc-300" placeholder="e.g. Q4 Marketing" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} />
+
+          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">Category (optional)</label>
+          <input className="mb-4 w-full border-b-2 border-zinc-100 bg-transparent py-2 text-sm font-medium outline-none focus:border-zinc-900 transition-colors placeholder:text-zinc-300" placeholder="e.g. Travel, Food, Business" value={projectCategory} onChange={e => setProjectCategory(e.target.value)} />
+
+          <label className="mb-4 flex items-center gap-3 cursor-pointer">
+            <button
+              type="button"
+              onClick={() => setProjectFavorite(!projectFavorite)}
+              className={`h-6 w-6 rounded-lg flex items-center justify-center transition-all ${projectFavorite ? 'bg-yellow-100 text-yellow-500' : 'bg-zinc-100 text-zinc-400'}`}
+            >
+              <Star className={`h-4 w-4 ${projectFavorite ? 'fill-current' : ''}`} />
+            </button>
+            <span className="text-sm font-medium text-zinc-700">Mark as favorite</span>
+          </label>
+
           <button className="w-full rounded-xl bg-zinc-900 py-3.5 font-bold text-white shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">{editingProject ? "Save Changes" : "Create Project"}</button>
         </form>
       </Modal>
@@ -367,7 +468,7 @@ export default function ExpenseTracker() {
           <div className="mb-8 text-center">
             <div className="inline-flex items-baseline justify-center gap-1">
               <span className="text-2xl font-bold text-zinc-300">€</span>
-              <input type="number" step="0.01" required placeholder="0.00" className="w-40 bg-transparent text-center text-5xl font-bold tracking-tighter outline-none placeholder:text-zinc-200" value={formData.priceInput} onChange={e => setFormData({ ...formData, priceInput: e.target.value })} />
+              <input type="number" inputMode="decimal" step="0.01" autoFocus required placeholder="0.00" className="w-40 bg-transparent text-center text-5xl font-bold tracking-tighter outline-none placeholder:text-zinc-200" value={formData.priceInput} onChange={e => setFormData({ ...formData, priceInput: e.target.value })} />
             </div>
           </div>
 
@@ -396,6 +497,23 @@ export default function ExpenseTracker() {
           <button className="mt-8 w-full rounded-xl bg-zinc-900 py-4 font-bold text-white shadow-xl hover:bg-zinc-800 active:scale-95 transition-all">{editingExpense ? "Save Changes" : "Add Transaction"}</button>
         </form>
       </Modal>
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+      />
+
+      {/* Emoji Picker */}
+      <EmojiPicker
+        isOpen={isEmojiPickerOpen}
+        onClose={() => setIsEmojiPickerOpen(false)}
+        onSelect={setProjectEmoji}
+        currentEmoji={projectEmoji}
+      />
     </div>
   );
 }

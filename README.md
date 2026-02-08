@@ -13,8 +13,11 @@ A modern, elegant expense tracking application built with **React** and **Fireba
 - **Total Overview**: View the grand total of all expenses across all projects.
 - **Project Management**: 
   - Create new projects with custom names.
+  - **Custom Icons**: Assign emoji icons to projects (searchable picker).
+  - **Categories**: Optional category labels for projects.
+  - **Favorites**: Mark projects as favorites with a star toggle.
   - View project summaries including individual totals.
-  - Delete projects (cascading delete removes all associated expenses).
+  - Delete projects with confirmation modal (cascading delete removes all expenses).
 
 ### 💰 Expense Management
 - **Detailed Tracking**: Add expenses with:
