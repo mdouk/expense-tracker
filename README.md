@@ -28,17 +28,24 @@ A modern, elegant expense tracking application built with **React** and **Fireba
 - **Flexible Pricing**: Toggle between 'Total Price' or 'Unit Price' input modes.
 - **Real-time Updates**: Changes are reflected instantly across all connected clients via Firestore snapshots.
 - **Transactions List**: View itemized expenses with user attribution.
-- **Analysis View**: Visual representation of spending distribution (simplified stats).
+- **Analysis View**: Interactive pie and bar charts showing spending by category, project, and user.
 
 ### 🎨 User Interface
 - **Modern Design**: Clean aesthetics using Tailwind CSS (Zinc color palette).
+- **Dark Mode**: Toggle between light and dark themes with localStorage persistence.
 - **Interactive**: Smooth transitions, hover effects, and animated modals.
-- **Responsive**: Fully optimized for mobile and desktop views.
+- **Responsive**: Fully optimized for mobile and desktop views with proper touch targets.
+
+### 📶 Offline Support
+- **Firestore Persistence**: Full offline support with IndexedDB caching.
+- **Offline Indicator**: Visual indicator when the app is offline.
+- **Auto-Sync**: Changes made offline are automatically synced when back online.
 
 ## 🛠 Tech Stack
 
 - **Frontend**: React 19, Vite
 - **Styling**: Tailwind CSS, PostCSS
+- **Charts**: Recharts
 - **Backend (BaaS)**: Firebase (Firestore, Authentication)
 - **Icons**: Lucide React
 - **Linting**: ESLint

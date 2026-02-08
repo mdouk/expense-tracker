@@ -3,6 +3,9 @@
 
 @import "tailwindcss";
 
+/* Dark mode variant for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* In Tailwind v4, we use @theme to override defaults */
 @theme {
     --font-sans: "Inter", sans-serif;
@@ -11,8 +14,6 @@
 /* Base styles */
 body {
     font-family: "Inter", sans-serif;
-    /* We removed the @apply rule here to prevent the build error. 
-     The background and text colors are already set in App.jsx */
 }
 
 /* Hide scrollbar utility */
