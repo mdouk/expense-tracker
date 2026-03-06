@@ -6,7 +6,8 @@ import {
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import {
   Plus, Trash2, ArrowLeft, Folder, ChevronRight,
-  CreditCard, LogOut, LayoutGrid, Star, Sun, Moon, WifiOff
+  CreditCard, LogOut, LayoutGrid, Star, Sun, Moon, WifiOff,
+  ArrowUp, ArrowDown
 } from 'lucide-react';
 
 import { auth, db, signInWithGoogle, logOut } from './config/firebase';
@@ -43,6 +44,8 @@ export default function ExpenseTracker() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
+  const [sortOrder, setSortOrder] = useState('date'); // 'date' | 'alpha'
+  const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc'
 
   // Form Inputs
   const [formData, setFormData] = useState({ item: '', quantity: '1', priceMode: 'total', priceInput: '', comments: '' });
@@ -255,10 +258,15 @@ export default function ExpenseTracker() {
     [projects, currentProjectId]
   );
 
-  const currentExpenses = useMemo(
-    () => expenses.filter(e => e.projectId === currentProjectId),
-    [expenses, currentProjectId]
-  );
+  const currentExpenses = useMemo(() => {
+    const filtered = expenses.filter(e => e.projectId === currentProjectId);
+    const dir = sortDir === 'asc' ? 1 : -1;
+    if (sortOrder === 'alpha') {
+      return [...filtered].sort((a, b) => dir * a.item.localeCompare(b.item));
+    }
+    // 'date': Firestore orders desc; reverse if asc
+    return sortDir === 'asc' ? [...filtered].reverse() : filtered;
+  }, [expenses, currentProjectId, sortOrder, sortDir]);
 
   // Sort projects with favorites pinned to top
   const sortedProjects = useMemo(
@@ -416,16 +424,43 @@ export default function ExpenseTracker() {
               </div>
             </header>
 
-            <div className="flex gap-2 border-b border-zinc-100 dark:border-zinc-700 pb-1 overflow-x-auto no-scrollbar">
-              {['list', 'stats'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors border-b-2 -mb-1.5 whitespace-nowrap ${activeTab === tab ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
-                >
-                  {tab === 'list' ? 'Transactions' : 'Analysis'}
-                </button>
-              ))}
+            <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-700 pb-1 overflow-x-auto no-scrollbar">
+              <div className="flex flex-1">
+                {['list', 'stats'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors border-b-2 -mb-1.5 whitespace-nowrap ${activeTab === tab ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                  >
+                    {tab === 'list' ? 'Transactions' : 'Analysis'}
+                  </button>
+                ))}
+              </div>
+              {activeTab === 'list' && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-1">
+                    <button
+                      onClick={() => setSortOrder('date')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${sortOrder === 'date' ? 'bg-white dark:bg-zinc-600 shadow-sm text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                    >
+                      Date
+                    </button>
+                    <button
+                      onClick={() => setSortOrder('alpha')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${sortOrder === 'alpha' ? 'bg-white dark:bg-zinc-600 shadow-sm text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                    >
+                      A–Z
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                    className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all"
+                    title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+                  >
+                    {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              )}
             </div>
 
             {activeTab === 'list' ? (
