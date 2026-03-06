@@ -32,7 +32,10 @@ const signInWithGoogle = async () => {
     try {
         await signInWithPopup(auth, googleProvider);
     } catch (e) {
-        console.error(e);
+        const ignored = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user'];
+        if (!ignored.includes(e.code)) {
+            console.error(e);
+        }
     }
 };
 
