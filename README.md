@@ -5,13 +5,15 @@ A modern, elegant expense tracking application built with **React** and **Fireba
 ## 🚀 Features
 
 ### 🔐 Authentication
+
 - **Google Sign-In**: Secure and easy authentication using Firebase Auth.
-- **Profile Management**: customizable display names.
+- **Profile Management**: View the logged-in user's profile name.
 - **Session Persistence**: Stays logged in across sessions.
 
 ### 📊 Dashboard
+
 - **Total Overview**: View the grand total of all expenses across all projects.
-- **Project Management**: 
+- **Project Management**:
   - Create new projects with custom names.
   - **Custom Icons**: Assign emoji icons to projects (searchable picker).
   - **Categories**: Optional category labels for projects.
@@ -20,6 +22,7 @@ A modern, elegant expense tracking application built with **React** and **Fireba
   - Delete projects with confirmation modal (cascading delete removes all expenses).
 
 ### 💰 Expense Management
+
 - **Detailed Tracking**: Add expenses with:
   - Description.
   - Price (Total or Unit based).
@@ -31,12 +34,14 @@ A modern, elegant expense tracking application built with **React** and **Fireba
 - **Analysis View**: Interactive pie and bar charts showing spending by category, project, and user.
 
 ### 🎨 User Interface
+
 - **Modern Design**: Clean aesthetics using Tailwind CSS (Zinc color palette).
 - **Dark Mode**: Toggle between light and dark themes with localStorage persistence.
 - **Interactive**: Smooth transitions, hover effects, and animated modals.
 - **Responsive**: Fully optimized for mobile and desktop views with proper touch targets.
 
 ### 📶 Offline Support
+
 - **Firestore Persistence**: Full offline support with IndexedDB caching.
 - **Offline Indicator**: Visual indicator when the app is offline.
 - **Auto-Sync**: Changes made offline are automatically synced when back online.
@@ -55,11 +60,14 @@ A modern, elegant expense tracking application built with **React** and **Fireba
 The application is built as a Single Page Application (SPA).
 
 ### Data Model (Firestore)
+
 Data is structured under a specific `appId` path for multi-tenancy support (if needed in future variants).
+
 - **Projects Collection**: Stores project metadata (name, creator, timestamp).
 - **Expenses Collection**: Stores individual transaction records linked to a `projectId`.
 
 ### Component Structure
+
 - **App (Root)**: Handles Routing (Dashboard vs Project View), Auth State, and Data Subscription.
   - **Navbar**: Global navigation, user profile, and sign-out.
   - **Dashboard View**: Displays the list of projects and grand totals.
@@ -74,27 +82,34 @@ Data is structured under a specific `appId` path for multi-tenancy support (if n
 ## 💻 Installation & Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd expense-tracker
    ```
 
 2. **Install Dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Environment Setup**
+
    The project requires a Firebase configuration. Ensure your Firebase keys are correctly set up in `src/App.jsx` or moved to environment variables for better security.
 
 4. **Run Locally**
+
    Start the development server:
+
    ```bash
    npm run dev
    ```
 
 5. **Build for Production**
+
    Create a production-ready build:
+
    ```bash
    npm run deploy
    ```

@@ -3,7 +3,7 @@ import {
   collection, addDoc, onSnapshot, query, orderBy,
   deleteDoc, doc, serverTimestamp, writeBatch, updateDoc
 } from 'firebase/firestore';
-import { onAuthStateChanged, updateProfile } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   Plus, Trash2, ArrowLeft, Folder, ChevronRight,
   CreditCard, LogOut, LayoutGrid, Star, Sun, Moon, WifiOff,
@@ -118,9 +118,7 @@ export default function ExpenseTracker() {
   }, [user]);
 
   // --- Actions ---
-  const handleUpdateName = async () => {
-    if (user && displayName.trim()) await updateProfile(user, { displayName });
-  };
+
 
   const handleSaveProject = async (e) => {
     e.preventDefault();
@@ -333,13 +331,11 @@ export default function ExpenseTracker() {
               {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
 
-            <div className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 transition-all focus-within:ring-2 focus-within:ring-zinc-200 dark:focus-within:ring-zinc-600 focus-within:bg-white dark:focus-within:bg-zinc-700">
+            <div className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 transition-all">
               <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-              <input
-                className="w-20 sm:w-24 bg-transparent text-xs font-semibold outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100"
-                value={displayName} onChange={(e) => setDisplayName(e.target.value)} onBlur={handleUpdateName}
-                enterKeyHint="done"
-              />
+              <span className="w-20 sm:w-24 bg-transparent text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                {displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
             </div>
             <button onClick={logOut} className="p-2.5 rounded-xl text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center">
               <LogOut className="h-5 w-5" />
