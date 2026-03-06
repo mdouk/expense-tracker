@@ -44,7 +44,7 @@ export default function ExpenseTracker() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
-  const [sortOrder, setSortOrder] = useState('date'); // 'date' | 'alpha'
+  const [sortOrder, setSortOrder] = useState('date'); // 'date' | 'alpha' | 'amount'
   const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc'
 
   // Form Inputs
@@ -264,6 +264,9 @@ export default function ExpenseTracker() {
     if (sortOrder === 'alpha') {
       return [...filtered].sort((a, b) => dir * a.item.localeCompare(b.item));
     }
+    if (sortOrder === 'amount') {
+      return [...filtered].sort((a, b) => dir * ((a.totalPrice || 0) - (b.totalPrice || 0)));
+    }
     // 'date': Firestore orders desc; reverse if asc
     return sortDir === 'asc' ? [...filtered].reverse() : filtered;
   }, [expenses, currentProjectId, sortOrder, sortDir]);
@@ -475,6 +478,12 @@ export default function ExpenseTracker() {
                       className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${sortOrder === 'alpha' ? 'bg-white dark:bg-zinc-600 shadow-sm text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
                     >
                       A–Z
+                    </button>
+                    <button
+                      onClick={() => setSortOrder('amount')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${sortOrder === 'amount' ? 'bg-white dark:bg-zinc-600 shadow-sm text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                    >
+                      Amount
                     </button>
                   </div>
                   <button

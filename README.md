@@ -31,6 +31,7 @@ A modern, elegant expense tracking application built with **React** and **Fireba
 - **Flexible Pricing**: Toggle between 'Total Price' or 'Unit Price' input modes.
 - **Real-time Updates**: Changes are reflected instantly across all connected clients via Firestore snapshots.
 - **Transactions List**: View itemized expenses with user attribution.
+- **Sorting**: Sort expenses by date, name, or amount spent (ascending/descending).
 - **Analysis View**: Interactive pie and bar charts showing spending by category, project, and user.
 
 ### 🎨 User Interface
