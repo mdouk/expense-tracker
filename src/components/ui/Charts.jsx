@@ -6,9 +6,13 @@ import {
 
 const COLORS = ['#18181b', '#3f3f46', '#52525b', '#71717a', '#a1a1aa', '#d4d4d8'];
 
-export default function Charts({ expenses, projects, formatMoney, darkMode }) {
+import { motion } from 'framer-motion';
+import Skeleton from './Skeleton';
+
+export default function Charts({ expenses, projects, formatMoney, darkMode, loading }) {
   // Spending by category
   const categoryData = useMemo(() => {
+    if (loading) return [];
     const categoryMap = {};
     expenses.forEach(exp => {
       const project = projects.find(p => p.id === exp.projectId);
@@ -18,10 +22,11 @@ export default function Charts({ expenses, projects, formatMoney, darkMode }) {
     return Object.entries(categoryMap)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [expenses, projects]);
+  }, [expenses, projects, loading]);
 
   // Spending by user
   const userData = useMemo(() => {
+    if (loading) return [];
     const userMap = {};
     expenses.forEach(exp => {
       const userName = exp.userName || 'Unknown';
@@ -30,10 +35,11 @@ export default function Charts({ expenses, projects, formatMoney, darkMode }) {
     return Object.entries(userMap)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [expenses]);
+  }, [expenses, loading]);
 
   // Spending by project
   const projectData = useMemo(() => {
+    if (loading) return [];
     const projectMap = {};
     expenses.forEach(exp => {
       const project = projects.find(p => p.id === exp.projectId);
@@ -44,14 +50,16 @@ export default function Charts({ expenses, projects, formatMoney, darkMode }) {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
-  }, [expenses, projects]);
+  }, [expenses, projects, loading]);
 
-  const totalSpending = expenses.reduce((sum, e) => sum + (e.totalPrice || 0), 0);
+  const totalSpending = useMemo(() => 
+    expenses.reduce((sum, e) => sum + (e.totalPrice || 0), 0), 
+  [expenses]);
 
   const textColor = darkMode ? '#e4e4e7' : '#18181b';
   const gridColor = darkMode ? '#3f3f46' : '#e4e4e7';
 
-  if (expenses.length === 0) {
+  if (!loading && expenses.length === 0) {
     return (
       <div className="py-12 text-center text-zinc-400 italic">
         No expenses to analyze yet.
@@ -59,8 +67,39 @@ export default function Charts({ expenses, projects, formatMoney, darkMode }) {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className={`rounded-2xl p-6 ${darkMode ? 'bg-zinc-800' : 'bg-zinc-900'} text-white`}>
+          <Skeleton className="h-4 w-32 mb-2 opacity-20" />
+          <Skeleton className="h-10 w-48 mb-2 opacity-20" />
+          <Skeleton className="h-4 w-24 opacity-20" />
+        </div>
+        <div className={`rounded-2xl p-6 ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-white border-zinc-100'} border`}>
+          <Skeleton className="h-6 w-40 mb-4" />
+          <div className="h-64 flex items-center justify-center">
+            <Skeleton className="h-48 w-48 rounded-full" />
+          </div>
+        </div>
+        <div className={`rounded-2xl p-6 ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-white border-zinc-100'} border`}>
+          <Skeleton className="h-6 w-40 mb-4" />
+          <div className="h-64 space-y-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-5/6" />
+            <Skeleton className="h-8 w-4/6" />
+            <Skeleton className="h-8 w-3/4" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-8"
+    >
       {/* Overview */}
       <div className={`rounded-2xl p-6 ${darkMode ? 'bg-zinc-800' : 'bg-zinc-900'} text-white`}>
         <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-2">Total Analyzed</h3>
@@ -150,6 +189,6 @@ export default function Charts({ expenses, projects, formatMoney, darkMode }) {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

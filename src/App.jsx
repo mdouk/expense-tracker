@@ -10,12 +10,15 @@ import {
   ArrowUp, ArrowDown
 } from 'lucide-react';
 
+import { motion, AnimatePresence } from 'framer-motion';
+
 import { auth, db, signInWithGoogle, logOut } from './config/firebase';
 import Card from './components/ui/Card';
 import Modal from './components/ui/Modal';
 import ConfirmModal from './components/ui/ConfirmModal';
 import EmojiPicker from './components/ui/EmojiPicker';
 import Charts from './components/ui/Charts';
+import Skeleton from './components/ui/Skeleton';
 
 export default function ExpenseTracker() {
   const [user, setUser] = useState(null);
@@ -98,6 +101,7 @@ export default function ExpenseTracker() {
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     const projectsRef = collection(db, 'artifacts', appId, 'public', 'data', 'projects');
     const expensesRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
 
@@ -376,55 +380,113 @@ export default function ExpenseTracker() {
         </div>
       </nav>
 
-      <main className="mx-auto max-w-3xl px-4 sm:px-6 pt-6 sm:pt-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {view === 'dashboard' ? (
-          <>
-            <div className="mb-8 sm:mb-12">
-              <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Total Expenses</h2>
-              <div className="text-4xl sm:text-5xl font-bold tracking-tighter">{formatMoney(grandTotal)}</div>
-            </div>
+      <main className="mx-auto max-w-3xl px-4 sm:px-6 pt-6 sm:pt-10">
+        <AnimatePresence mode="wait">
+          {view === 'dashboard' ? (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <div className="mb-8 sm:mb-12">
+                <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Total Expenses</h2>
+                {loading ? (
+                  <Skeleton className="h-10 w-48 sm:h-12" />
+                ) : (
+                  <div className="text-4xl sm:text-5xl font-bold tracking-tighter">{formatMoney(grandTotal)}</div>
+                )}
+              </div>
 
-            <div className="mb-6 flex items-center justify-between gap-4">
-              <h3 className="text-lg font-bold tracking-tight">Your Projects</h3>
-              <button onClick={() => openProjectModal()} className="flex items-center gap-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 px-4 py-2.5 min-h-[44px] text-xs font-semibold text-white dark:text-zinc-900 shadow-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-transform active:scale-95">
-                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New</span> Project
-              </button>
-            </div>
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <h3 className="text-lg font-bold tracking-tight">Your Projects</h3>
+                <button onClick={() => openProjectModal()} className="flex items-center gap-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 px-4 py-2.5 min-h-[44px] text-xs font-semibold text-white dark:text-zinc-900 shadow-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-transform active:scale-95">
+                  <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New</span> Project
+                </button>
+              </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {sortedProjects.map(p => (
-                <Card key={p.id} onClick={() => { setCurrentProjectId(p.id); setView('project'); }} className="group relative p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-50 dark:bg-zinc-700 border border-zinc-100 dark:border-zinc-600 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                        {p.emoji || <Folder className="h-5 w-5 text-zinc-400" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-semibold text-sm truncate">{p.name}</h4>
-                        <p className="text-lg font-bold tracking-tight tabular-nums">{formatMoney(projectTotal(p.id))}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={(e) => toggleProjectFavorite(p, e)}
-                        className={`p-2 rounded-lg transition-all ${p.favorite ? 'text-yellow-500' : 'text-zinc-300 dark:text-zinc-500 hover:text-yellow-500'}`}
+              <motion.div 
+                layout 
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+              >
+                <AnimatePresence>
+                  {loading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <motion.div
+                        key={`skel-${i}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="p-4 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700"
                       >
-                        <Star className={`h-4 w-4 ${p.favorite ? 'fill-current' : ''}`} />
-                      </button>
-                      <ChevronRight className="h-4 w-4 text-zinc-400" />
-                    </div>
-                  </div>
-                </Card>
-              ))}
-              {sortedProjects.length === 0 && !loading && (
-                <div className="col-span-full py-12 text-center rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50">
-                  <p className="text-zinc-400 font-medium">No projects yet. Create one to start.</p>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="space-y-6 sm:space-y-8">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-10 w-10 rounded-xl" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-6 w-32" />
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    sortedProjects.map(p => (
+                      <motion.div
+                        key={p.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Card onClick={() => { setCurrentProjectId(p.id); setView('project'); }} className="group relative p-4 h-full">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-50 dark:bg-zinc-700 border border-zinc-100 dark:border-zinc-600 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                                {p.emoji || <Folder className="h-5 w-5 text-zinc-400" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="font-semibold text-sm truncate">{p.name}</h4>
+                                <p className="text-lg font-bold tracking-tight tabular-nums">{formatMoney(projectTotal(p.id))}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={(e) => toggleProjectFavorite(p, e)}
+                                className={`p-2 rounded-lg transition-all ${p.favorite ? 'text-yellow-500' : 'text-zinc-300 dark:text-zinc-500 hover:text-yellow-500'}`}
+                              >
+                                <Star className={`h-4 w-4 ${p.favorite ? 'fill-current' : ''}`} />
+                              </button>
+                              <ChevronRight className="h-4 w-4 text-zinc-400" />
+                            </div>
+                          </div>
+                        </Card>
+                      </motion.div>
+                    ))
+                  )}
+                </AnimatePresence>
+                {sortedProjects.length === 0 && !loading && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="col-span-full py-12 text-center rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50"
+                  >
+                    <p className="text-zinc-400 font-medium">No projects yet. Create one to start.</p>
+                  </motion.div>
+                )}
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="project"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="space-y-6 sm:space-y-8"
+            >
             <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1">{currentProject?.name}</h1>
@@ -433,7 +495,11 @@ export default function ExpenseTracker() {
               <div className="flex items-center gap-3">
                 <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total</p>
-                  <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums">{formatMoney(projectTotal(currentProject.id))}</div>
+                  {loading ? (
+                    <Skeleton className="h-6 w-24 sm:h-8" />
+                  ) : (
+                    <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums">{formatMoney(projectTotal(currentProject.id))}</div>
+                  )}
                 </div>
                 <button
                   onClick={() => openProjectModal(currentProject)}
@@ -498,46 +564,88 @@ export default function ExpenseTracker() {
             </div>
 
             {activeTab === 'list' ? (
-              <div className="space-y-3">
-                {currentExpenses.map(ex => (
-                  <div
-                    key={ex.id}
-                    onClick={() => openExpenseModal(ex)}
-                    className="group relative flex items-center justify-between rounded-2xl bg-white dark:bg-zinc-800 p-4 shadow-sm border border-zinc-100 dark:border-zinc-700 transition-all hover:border-zinc-300 dark:hover:border-zinc-600 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                      <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 dark:bg-zinc-700 text-zinc-400 font-bold text-xs shrink-0">
-                        {ex.item.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold truncate">{ex.item}</p>
-                        <div className="flex items-center gap-2 text-xs text-zinc-400">
-                          <span className="font-medium text-zinc-500 dark:text-zinc-400">{ex.userName}</span>
-                          {ex.quantity > 1 && <span className="bg-zinc-100 dark:bg-zinc-700 px-1.5 rounded text-zinc-600 dark:text-zinc-300">{ex.quantity}x</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <p className="font-bold tabular-nums">{formatMoney(ex.totalPrice)}</p>
-                        {ex.quantity > 1 && <p className="text-[10px] text-zinc-400">{formatMoney(ex.unitPrice)} /unit</p>}
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-zinc-400" />
-                    </div>
-                  </div>
-                ))}
-                {currentExpenses.length === 0 && <div className="py-12 text-center text-zinc-400 italic">No transactions yet.</div>}
-              </div>
-            ) : (
-              <Charts 
-                expenses={currentExpenses} 
-                projects={projects} 
-                formatMoney={formatMoney} 
-                darkMode={darkMode}
-              />
-            )}
-          </div>
-        )}
+                <motion.div 
+                  layout 
+                  className="space-y-3"
+                >
+                  <AnimatePresence>
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <motion.div 
+                          key={`skel-exp-${i}`}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="flex items-center justify-between rounded-2xl bg-white dark:bg-zinc-800 p-4 border border-zinc-100 dark:border-zinc-700"
+                        >
+                          <div className="flex items-center gap-3 sm:gap-4 flex-1">
+                            <Skeleton className="hidden sm:block h-10 w-10 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-3 w-20" />
+                            </div>
+                          </div>
+                          <Skeleton className="h-6 w-20" />
+                        </motion.div>
+                      ))
+                    ) : (
+                      currentExpenses.map(ex => (
+                        <motion.div
+                          key={ex.id}
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
+                          onClick={() => openExpenseModal(ex)}
+                          className="group relative flex items-center justify-between rounded-2xl bg-white dark:bg-zinc-800 p-4 shadow-sm border border-zinc-100 dark:border-zinc-700 transition-all hover:border-zinc-300 dark:hover:border-zinc-600 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                            <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 dark:bg-zinc-700 text-zinc-400 font-bold text-xs shrink-0">
+                              {ex.item.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold truncate">{ex.item}</p>
+                              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                                <span className="font-medium text-zinc-500 dark:text-zinc-400">{ex.userName}</span>
+                                {ex.quantity > 1 && <span className="bg-zinc-100 dark:bg-zinc-700 px-1.5 rounded text-zinc-600 dark:text-zinc-300">{ex.quantity}x</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
+                              <p className="font-bold tabular-nums">{formatMoney(ex.totalPrice)}</p>
+                              {ex.quantity > 1 && <p className="text-[10px] text-zinc-400">{formatMoney(ex.unitPrice)} /unit</p>}
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-zinc-400" />
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                  </AnimatePresence>
+                  {!loading && currentExpenses.length === 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="py-12 text-center text-zinc-400 italic"
+                    >
+                      No transactions yet.
+                    </motion.div>
+                  )}
+                </motion.div>
+              ) : (
+                <Charts 
+                  expenses={currentExpenses} 
+                  projects={projects} 
+                  formatMoney={formatMoney} 
+                  darkMode={darkMode}
+                  loading={loading}
+                />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Floating Action Button */}
