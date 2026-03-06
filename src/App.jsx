@@ -3,7 +3,7 @@ import {
   collection, addDoc, onSnapshot, query, orderBy,
   deleteDoc, doc, serverTimestamp, writeBatch, updateDoc
 } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import {
   Plus, Trash2, ArrowLeft, Folder, ChevronRight,
   CreditCard, LogOut, LayoutGrid, Star, Sun, Moon, WifiOff,
@@ -61,6 +61,8 @@ export default function ExpenseTracker() {
   // Confirm modal state
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [editingExpense, setEditingExpense] = useState(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
 
   const appId = "default-app-id";
 
@@ -331,11 +333,38 @@ export default function ExpenseTracker() {
               {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
 
-            <div className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 transition-all">
+            <div
+              className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 transition-all"
+              title="Click your name to edit it"
+            >
               <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-              <span className="w-20 sm:w-24 bg-transparent text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                {displayName || user?.email?.split('@')[0] || 'User'}
-              </span>
+              {editingName ? (
+                <input
+                  autoFocus
+                  className="w-20 sm:w-24 bg-transparent text-xs font-semibold text-zinc-900 dark:text-zinc-100 outline-none border-b border-zinc-400 dark:border-zinc-500"
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onBlur={async () => {
+                    const trimmed = nameInput.trim();
+                    if (trimmed && trimmed !== displayName) {
+                      await updateProfile(user, { displayName: trimmed });
+                      setDisplayName(trimmed);
+                    }
+                    setEditingName(false);
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') e.target.blur();
+                    if (e.key === 'Escape') { setEditingName(false); }
+                  }}
+                />
+              ) : (
+                <span
+                  className="w-20 sm:w-24 bg-transparent text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate cursor-pointer hover:underline"
+                  onClick={() => { setNameInput(displayName || user?.email?.split('@')[0] || ''); setEditingName(true); }}
+                >
+                  {displayName || user?.email?.split('@')[0] || 'User'}
+                </span>
+              )}
             </div>
             <button onClick={logOut} className="p-2.5 rounded-xl text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center">
               <LogOut className="h-5 w-5" />
